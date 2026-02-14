@@ -24,19 +24,49 @@ def load_achievements(username):
             return json.load(file)
     return []
 
+def save_achievements(username, achievements):
+    """Сохраняет список достижений пользователя в файл."""
+    with open(get_user_file(username), 'w', encoding='utf-8') as file:
+        json.dump(achievements, file, ensure_ascii=False, indent=4)
+
+def parse_achievement_id(value):
+    """Преобразует id достижения в число или возвращает None."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
 def save_achievement(username, achievement_text, achievement_emoji, achievement_date):
     """Сохраняет новое достижение для пользователя."""
     achievements = load_achievements(username)
+    existing_ids = [
+        parsed_id
+        for parsed_id in (parse_achievement_id(achievement.get('id')) for achievement in achievements)
+        if parsed_id is not None
+    ]
+    next_id = max(existing_ids, default=0) + 1
     new_achievement = {
-        'id': len(achievements) + 1,
+        'id': next_id,
         'text': achievement_text,
         'emoji': achievement_emoji,
         'date': achievement_date
     }
     achievements.append(new_achievement)
-    with open(get_user_file(username), 'w', encoding='utf-8') as file:
-        json.dump(achievements, file, ensure_ascii=False, indent=4)
+    save_achievements(username, achievements)
     return new_achievement
+
+def delete_achievement(username, achievement_id):
+    """Удаляет достижение пользователя по id."""
+    achievements = load_achievements(username)
+    filtered_achievements = [
+        achievement
+        for achievement in achievements
+        if parse_achievement_id(achievement.get('id')) != achievement_id
+    ]
+    if len(filtered_achievements) == len(achievements):
+        return False
+    save_achievements(username, filtered_achievements)
+    return True
 
 @app.route('/')
 def index():
@@ -64,6 +94,22 @@ def get_achievements():
         return jsonify({'error': 'Username is required'}), 400
     achievements = load_achievements(username)
     return jsonify(achievements), 200
+
+@app.route('/delete', methods=['DELETE'])
+def delete_achievement_route():
+    """Удаляет достижение пользователя."""
+    data = request.get_json()
+    username = data.get('username') if data else None
+    achievement_id = data.get('id') if data else None
+    if not username or achievement_id is None:
+        return jsonify({'error': 'Invalid data'}), 400
+    achievement_id = parse_achievement_id(achievement_id)
+    if achievement_id is None:
+        return jsonify({'error': 'Invalid achievement id'}), 400
+    deleted = delete_achievement(username, achievement_id)
+    if not deleted:
+        return jsonify({'error': 'Achievement not found'}), 404
+    return jsonify({'success': True}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

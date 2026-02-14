@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
+    const EMPTY_STATE_TEXT = 'У вас пока нет достижений. Добавьте новое!';
     const usernameSection = document.getElementById('username-section');
     const mainSection = document.getElementById('main-section');
     const usernameForm = document.getElementById('username-form');
@@ -13,6 +14,20 @@ document.addEventListener('DOMContentLoaded', function () {
         button.addEventListener('click', () => {
             emojiInput.value = button.textContent;
         });
+    });
+
+    achievementsList.addEventListener('click', function (e) {
+        const deleteButton = e.target.closest('.achievement-delete-btn');
+        if (!deleteButton) {
+            return;
+        }
+
+        const achievementId = Number(deleteButton.dataset.id);
+        if (!Number.isInteger(achievementId)) {
+            return;
+        }
+
+        deleteAchievement(achievementId, deleteButton);
     });
 
     usernameForm.addEventListener('submit', function (e) {
@@ -50,10 +65,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         appendAchievementToList(achievement);
                     });
                 } else {
-                    const noAchievementsItem = document.createElement('li');
-                    noAchievementsItem.classList.add('list-group-item', 'text-center');
-                    noAchievementsItem.textContent = 'У вас пока нет достижений. Добавьте новое!';
-                    achievementsList.appendChild(noAchievementsItem);
+                    renderEmptyState();
                 }
             })
             .catch(error => console.error('Ошибка при загрузке достижений:', error));
@@ -72,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (data.error) {
                     console.error('Ошибка при добавлении достижения:', data.error);
                 } else {
-                    if (achievementsList.firstChild && achievementsList.firstChild.textContent === 'У вас пока нет достижений. Добавьте новое!') {
+                    if (achievementsList.firstChild && achievementsList.firstChild.textContent === EMPTY_STATE_TEXT) {
                         achievementsList.removeChild(achievementsList.firstChild);
                     }
                     appendAchievementToList(data, true);
@@ -81,9 +93,43 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => console.error('Ошибка при добавлении достижения:', error));
     }
 
+    function deleteAchievement(achievementId, deleteButton) {
+        deleteButton.disabled = true;
+
+        fetch('/delete', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, id: achievementId })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Ошибка при удалении достижения:', data.error);
+                    deleteButton.disabled = false;
+                    return;
+                }
+
+                const itemToRemove = achievementsList.querySelector(`li[data-id="${achievementId}"]`);
+                if (itemToRemove) {
+                    itemToRemove.remove();
+                }
+
+                if (!achievementsList.querySelector('.achievement-item')) {
+                    renderEmptyState();
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при удалении достижения:', error);
+                deleteButton.disabled = false;
+            });
+    }
+
     function appendAchievementToList(achievement, highlight = false) {
         const listItem = document.createElement('li');
-        listItem.classList.add('list-group-item');
+        listItem.classList.add('list-group-item', 'achievement-item');
+        listItem.dataset.id = achievement.id;
         if (highlight) {
             listItem.classList.add('list-group-item-success');
         }
@@ -100,11 +146,26 @@ document.addEventListener('DOMContentLoaded', function () {
         dateSpan.classList.add('achievement-date');
         dateSpan.textContent = achievement.date;
 
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.classList.add('btn', 'btn-sm', 'btn-outline-danger', 'achievement-delete-btn');
+        deleteButton.textContent = 'Удалить';
+        deleteButton.dataset.id = achievement.id;
+        deleteButton.title = 'Удалить достижение';
+
         listItem.appendChild(emojiSpan);
         listItem.appendChild(textSpan);
         listItem.appendChild(dateSpan);
+        listItem.appendChild(deleteButton);
 
         achievementsList.appendChild(listItem);
+    }
+
+    function renderEmptyState() {
+        const noAchievementsItem = document.createElement('li');
+        noAchievementsItem.classList.add('list-group-item', 'text-center');
+        noAchievementsItem.textContent = EMPTY_STATE_TEXT;
+        achievementsList.appendChild(noAchievementsItem);
     }
 
     function formatDate(date) {

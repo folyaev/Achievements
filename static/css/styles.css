@@ -69,6 +69,12 @@ body {
     border: 1px solid #444;
 }
 
+.achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .achievement-text {
     font-size: 1.1rem;
     margin-left: 10px;
@@ -79,4 +85,26 @@ body {
     color: #6c757d;
     margin-left: auto;
     padding-left: 10px;
+}
+
+.achievement-delete-btn {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.achievement-item:hover .achievement-delete-btn,
+.achievement-item:focus-within .achievement-delete-btn {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+@media (hover: none) {
+    .achievement-delete-btn {
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+    }
 }
